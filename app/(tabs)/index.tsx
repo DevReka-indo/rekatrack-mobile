@@ -113,6 +113,10 @@ export default function HomeScreen() {
     };
 
     loadUserData();
+
+    return () => {
+      backHandler.remove();
+    };
   }, []);
 
   const fetchTravelDocuments = async () => {
@@ -164,7 +168,7 @@ export default function HomeScreen() {
       }
     } catch (err: any) {
       console.error("Fetch error:", err);
-      const errorMsg = err?.raw?.message || "Gagal memuat data";
+      const errorMsg = err?.message || "Gagal memuat data";
 
       if (err?.status === 401) {
         Alert.alert("Sesi Habis", "Silakan login ulang.", [
