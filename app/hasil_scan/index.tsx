@@ -5,7 +5,15 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  Alert,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 type DetailPengiriman = {
   id: number;
@@ -26,6 +34,7 @@ export default function HasilScanScreen() {
   // const [status, setStatus] = useState('non active');
   const [status, setStatus] = useState("Belum Aktif");
   const [tracerActive, setTracerActive] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const trackingInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const locationWatcher = useRef<Location.LocationSubscription | null>(null);
 
@@ -194,6 +203,17 @@ export default function HasilScanScreen() {
     });
   };
 
+
+  const onRefresh = async () => {
+    if (!id) return;
+    try {
+      setRefreshing(true);
+      await fetchDetail();
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -218,7 +238,18 @@ export default function HasilScanScreen() {
           <Text style={styles.title}>Hasil Scan</Text>
         </View>
 
-        <View style={styles.content}>
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={{ paddingBottom: 32 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={["#1E3A8A"]}
+              tintColor="#1E3A8A"
+            />
+          }
+        >
           <View style={styles.headerCard}>
             <View style={styles.headerRow}>
               <View style={styles.iconContainer}>
@@ -276,7 +307,7 @@ export default function HasilScanScreen() {
               </View>
             </TouchableOpacity>
           </View>
-        </View>
+        </ScrollView>
       </View>
     </>
   );

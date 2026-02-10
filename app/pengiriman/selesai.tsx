@@ -111,21 +111,35 @@ export default function KonfirmasiSelesaiScreen() {
   };
 
   const takePhoto = async () => {
-    const permission = await ImagePicker.requestCameraPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert("Izin ditolak", "Akses kamera diperlukan");
-      return;
-    }
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
 
-    const result = await ImagePicker.launchCameraAsync({
-      quality: 0.8,
-      allowsEditing: false,
-    });
+      if (!permission.granted) {
+        Alert.alert(
+          "Izin kamera dibutuhkan",
+          "Aktifkan akses kamera di Settings agar bisa ambil foto bukti pengiriman.",
+        );
+        return;
+      }
 
-    if (!result.canceled) {
-      const asset = result.assets[0];
-      const jpegUri = await normalizeToJpegFile(asset);
-      setSelectedImage(jpegUri);
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.8,
+        allowsEditing: false,
+        exif: false,
+      });
+
+      if (!result.canceled) {
+        const asset = result.assets[0];
+        const jpegUri = await normalizeToJpegFile(asset);
+        setSelectedImage(jpegUri);
+      }
+    } catch (error) {
+      console.error("TAKE PHOTO ERROR:", error);
+      Alert.alert(
+        "Kamera gagal dibuka",
+        "Terjadi kendala saat membuka kamera. Coba tutup aplikasi lalu buka kembali.",
+      );
     }
   };
 
