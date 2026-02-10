@@ -1,17 +1,22 @@
 {
   "expo": {
-    "name": "rekatrack-mobile-new",
-    "slug": "rekatrack-mobile-new",
-    "version": "1.0.0",
+    "name": "rekatrack-mobile",
+    "slug": "rekatrack-mobile",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "rekatrackmobilenew",
+    "scheme": "rekatrack-mobile",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "bundleIdentifier": "com.reka.rekatrackmobile",
+      "supportsTablet": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
+      "package": "com.reka.rekatrackmobile",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -38,11 +43,26 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "200d2d34-f72d-48a7-a723-d117f19be0cc"
+      }
+    },
+    "owner": "fajarbudhi17",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/200d2d34-f72d-48a7-a723-d117f19be0cc"
     }
   }
 }

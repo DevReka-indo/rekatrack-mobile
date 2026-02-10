@@ -1,0 +1,495 @@
+// app/hasil_scan/index.tsx
+
+import { apiFetch } from "@/utils/api";
+import { Ionicons } from "@expo/vector-icons";
+import * as Location from "expo-location";
+import { router, Stack, useLocalSearchParams } from "expo-router";
+import { useEffect, useRef, useState } from "react";
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+
+type DetailPengiriman = {
+  id: number;
+  no_travel_document: string;
+  send_to: string;
+  status: string;
+  project?: string;
+  date_no_travel_document?: string;
+  po_number?: string;
+  reference_number?: string;
+};
+
+export default function HasilScanScreen() {
+  const { code } = useLocalSearchParams<{ code: string }>();
+  const [id, setId] = useState<number | null>(null);
+  const [detail, setDetail] = useState<DetailPengiriman | null>(null);
+  const [loading, setLoading] = useState(true);
+  // const [status, setStatus] = useState('non active');
+  const [status, setStatus] = useState("Belum Aktif");
+  const [tracerActive, setTracerActive] = useState(false);
+  const trackingInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const locationWatcher = useRef<Location.LocationSubscription | null>(null);
+
+  // Ekstrak ID dari code (misal SJNID:123 → 123)
+  useEffect(() => {
+    if (code && code.startsWith("SJNID:")) {
+      const extractedId = parseInt(code.substring(6), 10);
+      if (!isNaN(extractedId)) {
+        setId(extractedId);
+      } else {
+        Alert.alert("Error", "Format code tidak valid");
+        router.back();
+      }
+    } else {
+      Alert.alert("Error", "Data scan tidak valid");
+      router.back();
+    }
+  }, [code]);
+
+  // Fetch detail pengiriman berdasarkan ID
+  useEffect(() => {
+    if (id) {
+      fetchDetail();
+    }
+  }, [id]);
+
+  const fetchDetail = async () => {
+    try {
+      const response = await apiFetch(`/travel-document/${id}`);
+      if (response?.data) {
+        setDetail(response.data);
+
+        // Mapping status dari backend ke tampilan di app
+        const backendStatus = response.data.status;
+        if (backendStatus === "Terkirim") {
+          setStatus("Terkirim");
+        } else if (backendStatus === "Sedang dikirim") {
+          setStatus("Aktif");
+          setTracerActive(true); // otomatis aktifkan tombol kalau sudah sedang dikirim
+        } else {
+          setStatus("Belum Aktif");
+        }
+      } else {
+        Alert.alert("Error", "Gagal memuat detail pengiriman");
+      }
+    } catch (error) {
+      Alert.alert("Error", "Gagal memuat data");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fungsi ambil lokasi GPS
+  const getLocation = async () => {
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Error", "Izin lokasi diperlukan");
+      return null;
+    }
+
+    const location = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.High,
+    });
+    return {
+      latitude: location.coords.latitude,
+      longitude: location.coords.longitude,
+    };
+  };
+
+  const startLocationWatching = async () => {
+    if (tracerActive && id) {
+      locationWatcher.current = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.High,
+          distanceInterval: 100, // 200m untuk test
+        },
+        async (location) => {
+          let retries = 3;
+          while (retries > 0) {
+            try {
+              await apiFetch("/send-location", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  travel_document_id: [id],
+                  latitude: location.coords.latitude,
+                  longitude: location.coords.longitude,
+                }),
+              });
+              console.log("Lokasi dikirim:", location.coords);
+              break; // sukses, keluar loop
+            } catch (error) {
+              console.error("Gagal kirim, retry:", retries);
+              retries--;
+              await new Promise((resolve) => setTimeout(resolve, 5000)); // tunggu 5 detik
+            }
+          }
+        },
+      );
+    }
+  };
+
+  useEffect(() => {
+    if (tracerActive) {
+      startLocationWatching();
+    }
+  }, [tracerActive]);
+
+  // PERBAIKAN: Stop watching saat component unmount
+  useEffect(() => {
+    return () => {
+      if (locationWatcher.current) {
+        locationWatcher.current.remove();
+      }
+    };
+  }, []);
+
+  // Klik "Hidupkan Tracer"
+  const handleHidupkanTracer = async () => {
+    if (id) {
+      const location = await getLocation();
+      if (!location) return;
+
+      try {
+        await apiFetch("/send-location", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            travel_document_id: [id],
+            latitude: location.latitude,
+            longitude: location.longitude,
+          }),
+        });
+        setStatus("Aktif"); // ubah jadi "Aktif"
+        setTracerActive(true);
+
+        Alert.alert("Sukses", "Tracer dihidupkan dan lokasi dikirim", [
+          {
+            text: "OK",
+            onPress: () => {
+              // Pindah ke halaman detail pengiriman dengan pass id
+              router.push({
+                pathname: "/pengiriman/detail",
+                params: { id: id.toString() }, // id sebagai string
+              });
+            },
+          },
+        ]);
+      } catch (error) {
+        Alert.alert("Error", "Gagal menghidupkan tracer");
+      }
+    }
+  };
+
+  const handleSelesaikanPengiriman = () => {
+    if (!id || !detail) return;
+
+    router.push({
+      pathname: "/pengiriman/selesai",
+      params: {
+        id: id.toString(),
+        no: detail.no_travel_document,
+        send_to: detail.send_to,
+        project: detail.project || "",
+      },
+    });
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <Text>Memuat...</Text>
+      </View>
+    );
+  }
+
+  return (
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+
+      <View style={styles.container}>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backButton}
+          >
+            <Ionicons name="arrow-back" size={24} color="#000" />
+          </TouchableOpacity>
+          <Text style={styles.title}>Hasil Scan</Text>
+        </View>
+
+        <View style={styles.content}>
+          <View style={styles.headerCard}>
+            <View style={styles.headerRow}>
+              <View style={styles.iconContainer}>
+                <Ionicons name="cube-outline" size={35} color="#FFFFFF" />
+              </View>
+              <View style={styles.headerTextContainer}>
+                <Text style={styles.scanSuccessTextHeader}>Scan berhasil</Text>
+                <Text style={styles.dataPengirimanTextHeader}>
+                  Data Pengiriman
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.dataCard}>
+            <Text style={styles.sectionTitle}>Surat Jalan</Text>
+            <Text style={styles.dataValue}>
+              {detail?.no_travel_document || "-"}
+            </Text>
+          </View>
+
+          <View style={styles.dataCard}>
+            <Text style={styles.sectionTitle}>Alamat Pengiriman</Text>
+            <Text style={styles.dataValue}>{detail?.send_to || "-"}</Text>
+          </View>
+
+          <View style={styles.dataCard}>
+            <Text style={styles.sectionTitle}>Status Pengiriman</Text>
+            <Text style={styles.statusValue}>{status}</Text>
+          </View>
+
+          <View style={styles.actionCard}>
+            <TouchableOpacity
+              style={[styles.button, tracerActive && styles.buttonActive]}
+              onPress={handleHidupkanTracer}
+              disabled={tracerActive}
+            >
+              <View style={styles.buttonContent}>
+                <Ionicons name="cube-outline" size={25} color="#FFFFFF" />
+                <Text style={styles.buttonText}>
+                  {tracerActive ? "Tracer Hidup" : "Hidupkan Tracer"}
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.buttonSecondary}
+              onPress={handleSelesaikanPengiriman}
+            >
+              <View style={styles.buttonSecondaryContent}>
+                <Ionicons name="chevron-forward" size={20} color="#666" />
+                <Text style={styles.buttonTextSecondary}>
+                  Selesaikan Pengiriman
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 16,
+    paddingTop: 30,
+    backgroundColor: "#f9f9f9",
+  },
+  // Header
+  header: {
+    backgroundColor: "#FFFFFF",
+    paddingTop: 24,
+    paddingBottom: 16,
+    marginHorizontal: -16,
+    marginBottom: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  backButton: {
+    position: "absolute",
+    left: 16,
+    bottom: 16,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: "600",
+    marginLeft: 16,
+  },
+  content: {
+    padding: 2,
+    alignItems: "center",
+
+    gap: 16,
+  },
+  resultCard: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 24,
+    width: "100%",
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  icon: {
+    marginBottom: 8,
+  },
+  successText: {
+    fontSize: 16,
+    color: "#4CAF50",
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 14,
+    color: "#666",
+    marginBottom: 8,
+    alignSelf: "flex-start",
+  },
+  dataText: {
+    fontSize: 16,
+    color: "#333",
+    marginBottom: 24,
+    backgroundColor: "#f0f0f0",
+    padding: 12,
+    borderRadius: 8,
+    width: "100%",
+  },
+  statusText: {
+    fontSize: 16,
+    color: "#333",
+    marginBottom: 24,
+    backgroundColor: "#f0f0f0",
+    padding: 12,
+    borderRadius: 8,
+    width: "100%",
+  },
+  center: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  headerCard: {
+    backgroundColor: "#d3efde",
+    borderRadius: 16,
+    borderColor: "#29C9A4",
+    borderWidth: 1,
+    padding: 20,
+    width: "100%",
+    marginTop: 10,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    width: "100%",
+  },
+  iconContainer: {
+    width: 55,
+    height: 55,
+    backgroundColor: "#158079",
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 16,
+  },
+  headerTextContainer: {
+    flex: 1,
+  },
+  scanSuccessText: {
+    fontSize: 16,
+    color: "#333",
+    marginBottom: 4,
+  },
+  dataPengirimanText: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#158079",
+  },
+  scanSuccessTextHeader: {
+    fontSize: 16,
+    color: "#333333",
+    opacity: 1,
+  },
+  dataPengirimanTextHeader: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#000000",
+    marginTop: 4,
+  },
+
+  // CARD 2-4: Data Cards
+  dataCard: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    borderColor: "#44444433",
+    borderWidth: 1,
+    padding: 20,
+    width: "100%",
+  },
+  dataValue: {
+    fontSize: 18,
+    color: "#333",
+    fontWeight: "600",
+  },
+  statusValue: {
+    fontSize: 18,
+    color: "#000000",
+    fontWeight: "bold",
+  },
+
+  // CARD 5: Action Card
+  actionCard: {
+    width: "100%",
+    marginTop: 20,
+  },
+  button: {
+    backgroundColor: "#2196F3",
+    padding: 16,
+    borderRadius: 12,
+    width: "100%",
+    alignItems: "center",
+  },
+  buttonActive: {
+    backgroundColor: "#4CAF50",
+  },
+  buttonText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+  buttonSecondary: {
+    backgroundColor: "#ced8de",
+    padding: 16,
+    borderRadius: 12,
+    width: "100%",
+    alignItems: "center",
+    marginTop: 15,
+  },
+  buttonTextSecondary: {
+    color: "#3D3D3D",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+  buttonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12, // jarak antara icon dan teks
+  },
+  buttonSecondaryContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10, // jarak antara panah > dan teks
+  },
+  arrowText: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#666",
+  },
+  primaryButton: {
+    backgroundColor: "#ced8de",
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: "center",
+    marginTop: 15,
+  },
+  primaryButtonText: {
+    color: "#3D3D3D",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+});
