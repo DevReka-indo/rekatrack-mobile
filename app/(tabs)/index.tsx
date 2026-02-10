@@ -3,15 +3,16 @@ import {
   ActivityIndicator,
   Alert,
   BackHandler,
-  FlatList,
   Image,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   ToastAndroid,
   TouchableOpacity,
   View,
+  useColorScheme,
 } from "react-native";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -36,6 +37,7 @@ type TravelDocument = {
 };
 
 export default function HomeScreen() {
+  const colorScheme = useColorScheme();
   const [allDocuments, setAllDocuments] = useState<TravelDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -397,123 +399,128 @@ export default function HomeScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <StatusBar style="light" backgroundColor="#364981" />
-      {/* Header   */}
-      <View style={styles.header}>
-        <View style={styles.headerTextRow}>
-          <Text style={styles.welcomeText}>Halo, {userName}</Text>
-        </View>
+      <StatusBar
+        style={colorScheme === "dark" ? "light" : "dark"}
+        backgroundColor="#f9f9f9"
+      />
 
-        <View style={styles.headerLogo}>
-          <Image
-            style={styles.logo}
-            source={require("@/assets/images/logo-rekatrack.png")}
-          />
-        </View>
-      </View>
-
-      <Text style={styles.subtitle}>Pantau dan kelola pengiriman Anda</Text>
-
-      {/* Stats Cards */}
-      <View style={styles.statsContainer}>
-        <TouchableOpacity
-          style={[styles.statCard]}
-          onPress={() =>
-            router.push({
-              pathname: "/detail/viewall",
-              params: { filterStatus: "Belum terkirim" },
-            })
-          }
-        >
-          <View style={styles.iconWrapper}>
-            <Image
-              style={styles.statIcon}
-              source={require("@/assets/icons/belum-terkirim.png")}
-            />
-          </View>
-
-          <Text style={styles.statNumber}>{stats.belumTerkirim}</Text>
-          <Text style={styles.statLabel}>Belum Terkirim</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.statCard]}
-          onPress={() =>
-            router.push({
-              pathname: "/detail/viewall",
-              params: { filterStatus: "Terkirim" },
-            })
-          }
-        >
-          <View style={styles.iconWrapper}>
-            <Image
-              style={styles.statIcon}
-              source={require("@/assets/icons/terkirim.png")}
-            />
-          </View>
-
-          <Text style={styles.statNumber}>{stats.terkirim}</Text>
-          <Text style={styles.statLabel}>Terkirim</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.statCard]}
-          onPress={() => router.push("/pengiriman")}
-        >
-          <View style={styles.iconWrapper}>
-            <Image
-              style={styles.statIcon}
-              source={require("@/assets/icons/history.png")}
-            />
-          </View>
-
-          <Text style={styles.statNumber}>{stats.sedangDikirim}</Text>
-          <Text style={styles.statLabel}>Sedang Dikirim</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Quick Track */}
-      <View style={styles.quickTrack}>
-        <Text style={styles.quickTrackTitle}>Lacak Cepat</Text>
-        <Text style={styles.quickTrackSubtitle}>Masukkan Nomor SJN</Text>
-        <View style={styles.trackInputContainer}>
-          <TextInput
-            style={styles.trackInput}
-            placeholder="Nomor Surat Jalan (SJN)"
-            value={trackingInput}
-            onChangeText={setTrackingInput}
-            placeholderTextColor="#FFFFFF"
-          />
-          <TouchableOpacity style={styles.trackButton} onPress={handleTrack}>
-            <Text style={styles.trackButtonText}>Track</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Recent Tracking */}
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Pengiriman Terbaru</Text>
-        <TouchableOpacity onPress={() => router.push("/detail/viewall")}>
-          <Text style={styles.viewAll}>Lihat Semua</Text>
-        </TouchableOpacity>
-      </View>
-
-      <FlatList
-        data={recentItems}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={renderRecentItem}
-        contentContainerStyle={styles.listContainer}
+      <ScrollView
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.listContainer}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={["#1E3A8A"]} // Android
-            tintColor="#1E3A8A" // iOS
-            progressViewOffset={10} // posisi preview refresh
+            colors={["#1E3A8A"]}
+            tintColor="#1E3A8A"
+            progressViewOffset={10}
           />
         }
-      />
+      >
+        {/* Header   */}
+        <View style={styles.header}>
+          <View style={styles.headerTextRow}>
+            <Text style={styles.welcomeText}>Halo, {userName}</Text>
+          </View>
+
+          <View style={styles.headerLogo}>
+            <Image
+              style={styles.logo}
+              source={require("@/assets/images/logo-rekatrack.png")}
+            />
+          </View>
+        </View>
+
+        <Text style={styles.subtitle}>Pantau dan kelola pengiriman Anda</Text>
+
+        {/* Stats Cards */}
+        <View style={styles.statsContainer}>
+          <TouchableOpacity
+            style={[styles.statCard]}
+            onPress={() =>
+              router.push({
+                pathname: "/detail/viewall",
+                params: { filterStatus: "Belum terkirim" },
+              })
+            }
+          >
+            <View style={styles.iconWrapper}>
+              <Image
+                style={styles.statIcon}
+                source={require("@/assets/icons/belum-terkirim.png")}
+              />
+            </View>
+
+            <Text style={styles.statNumber}>{stats.belumTerkirim}</Text>
+            <Text style={styles.statLabel}>Belum Terkirim</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.statCard]}
+            onPress={() =>
+              router.push({
+                pathname: "/detail/viewall",
+                params: { filterStatus: "Terkirim" },
+              })
+            }
+          >
+            <View style={styles.iconWrapper}>
+              <Image
+                style={styles.statIcon}
+                source={require("@/assets/icons/terkirim.png")}
+              />
+            </View>
+
+            <Text style={styles.statNumber}>{stats.terkirim}</Text>
+            <Text style={styles.statLabel}>Terkirim</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.statCard]}
+            onPress={() => router.push("/pengiriman")}
+          >
+            <View style={styles.iconWrapper}>
+              <Image
+                style={styles.statIcon}
+                source={require("@/assets/icons/history.png")}
+              />
+            </View>
+
+            <Text style={styles.statNumber}>{stats.sedangDikirim}</Text>
+            <Text style={styles.statLabel}>Sedang Dikirim</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Quick Track */}
+        <View style={styles.quickTrack}>
+          <Text style={styles.quickTrackTitle}>Lacak Cepat</Text>
+          <Text style={styles.quickTrackSubtitle}>Masukkan Nomor SJN</Text>
+          <View style={styles.trackInputContainer}>
+            <TextInput
+              style={styles.trackInput}
+              placeholder="Nomor Surat Jalan (SJN)"
+              value={trackingInput}
+              onChangeText={setTrackingInput}
+              placeholderTextColor="#FFFFFF"
+            />
+            <TouchableOpacity style={styles.trackButton} onPress={handleTrack}>
+              <Text style={styles.trackButtonText}>Track</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Recent Tracking */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Pengiriman Terbaru</Text>
+          <TouchableOpacity onPress={() => router.push("/detail/viewall")}>
+            <Text style={styles.viewAll}>Lihat Semua</Text>
+          </TouchableOpacity>
+        </View>
+
+        {recentItems.map((item) => (
+          <View key={item.id}>{renderRecentItem({ item })}</View>
+        ))}
+      </ScrollView>
     </ThemedView>
   );
 }
