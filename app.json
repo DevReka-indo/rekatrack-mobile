@@ -12,7 +12,10 @@
       "bundleIdentifier": "com.reka.rekatrackmobile",
       "supportsTablet": true,
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "Aplikasi membutuhkan akses kamera untuk mengambil foto bukti pengiriman.",
+        "NSPhotoLibraryUsageDescription": "Aplikasi membutuhkan akses galeri untuk memilih foto bukti pengiriman.",
+        "NSPhotoLibraryAddUsageDescription": "Aplikasi dapat menyimpan hasil foto bukti pengiriman bila diperlukan."
       }
     },
     "android": {
@@ -45,7 +48,14 @@
         }
       ],
       "@react-native-community/datetimepicker",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Aplikasi membutuhkan akses galeri untuk memilih foto bukti pengiriman.",
+          "cameraPermission": "Aplikasi membutuhkan akses kamera untuk mengambil foto bukti pengiriman."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
