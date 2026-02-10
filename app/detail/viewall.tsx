@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   FlatList,
   Image,
+  RefreshControl,
   StyleSheet,
   Text,
   TextInput,
@@ -32,6 +33,7 @@ export default function ViewAllScreen() {
   const [data, setData] = useState<TravelDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
   const { filterStatus } = useLocalSearchParams();
 
   useEffect(() => {
@@ -129,6 +131,16 @@ export default function ViewAllScreen() {
 
     return result;
   }, [data, filterStatus, search]);
+
+
+  const onRefresh = async () => {
+    try {
+      setRefreshing(true);
+      await fetchAll();
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const getTitle = () => {
     if (filterStatus === "Belum terkirim") return "Belum Terkirim";
@@ -229,23 +241,32 @@ export default function ViewAllScreen() {
           />
         </View>
 
-        {loading ? (
-          <ActivityIndicator size="large" />
-        ) : filteredData.length === 0 ? (
-          <Text style={styles.emptyText}>
-            {search.trim()
-              ? "Data tidak ditemukan"
-              : "Tidak ada data untuk status ini"}
-          </Text>
-        ) : (
-          <FlatList
-            data={filteredData}
-            keyExtractor={(item) => item.id.toString()}
-            renderItem={renderItem}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: 20 }}
-          />
-        )}
+        <FlatList
+          data={filteredData}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={renderItem}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 20, flexGrow: 1 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={["#1E3A8A"]}
+              tintColor="#1E3A8A"
+            />
+          }
+          ListEmptyComponent={
+            loading ? (
+              <ActivityIndicator size="large" style={{ marginTop: 40 }} />
+            ) : (
+              <Text style={styles.emptyText}>
+                {search.trim()
+                  ? "Data tidak ditemukan"
+                  : "Tidak ada data untuk status ini"}
+              </Text>
+            )
+          }
+        />
       </View>
     </>
   );

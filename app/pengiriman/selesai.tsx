@@ -3,6 +3,7 @@
 import { apiFetch } from "@/utils/api";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import * as FileSystem from "expo-file-system";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
@@ -70,17 +71,25 @@ export default function KonfirmasiSelesaiScreen() {
   const normalizeToJpegFile = async (asset: ImagePicker.ImagePickerAsset) => {
     const srcUri = asset.uri;
 
-    // convert ke jpeg, output biasanya file://...
-    const out = await ImageManipulator.manipulateAsync(
-      srcUri,
-      [], // optional resize bisa ditambah kalau mau
-      { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG },
-    );
+    const resizeActions: ImageManipulator.Action[] = [];
+    const maxDimension = Math.max(asset.width ?? 0, asset.height ?? 0);
 
-    // sanity check
+    if (maxDimension > 1600) {
+      if ((asset.width ?? 0) >= (asset.height ?? 0)) {
+        resizeActions.push({ resize: { width: 1600 } });
+      } else {
+        resizeActions.push({ resize: { height: 1600 } });
+      }
+    }
+
+    // convert ke jpeg dan resize opsional supaya upload iOS lebih stabil
+    const out = await ImageManipulator.manipulateAsync(srcUri, resizeActions, {
+      compress: 0.8,
+      format: ImageManipulator.SaveFormat.JPEG,
+    });
+
     if (!out?.uri) throw new Error("Gagal menghasilkan file jpeg");
 
-    // log debugging (boleh hapus setelah beres)
     console.log("SRC URI:", srcUri);
     console.log("OUT URI:", out.uri);
 
@@ -111,21 +120,35 @@ export default function KonfirmasiSelesaiScreen() {
   };
 
   const takePhoto = async () => {
-    const permission = await ImagePicker.requestCameraPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert("Izin ditolak", "Akses kamera diperlukan");
-      return;
-    }
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
 
-    const result = await ImagePicker.launchCameraAsync({
-      quality: 0.8,
-      allowsEditing: false,
-    });
+      if (!permission.granted) {
+        Alert.alert(
+          "Izin kamera dibutuhkan",
+          "Aktifkan akses kamera di Settings agar bisa ambil foto bukti pengiriman.",
+        );
+        return;
+      }
 
-    if (!result.canceled) {
-      const asset = result.assets[0];
-      const jpegUri = await normalizeToJpegFile(asset);
-      setSelectedImage(jpegUri);
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ["images"],
+        quality: 0.8,
+        allowsEditing: false,
+        exif: false,
+      });
+
+      if (!result.canceled) {
+        const asset = result.assets[0];
+        const jpegUri = await normalizeToJpegFile(asset);
+        setSelectedImage(jpegUri);
+      }
+    } catch (error) {
+      console.error("TAKE PHOTO ERROR:", error);
+      Alert.alert(
+        "Kamera gagal dibuka",
+        "Terjadi kendala saat membuka kamera. Coba tutup aplikasi lalu buka kembali.",
+      );
     }
   };
 
@@ -138,22 +161,29 @@ export default function KonfirmasiSelesaiScreen() {
   const uploadPhoto = async () => {
     if (!selectedImage) throw new Error("Foto belum dipilih");
 
+    const fileInfo = await FileSystem.getInfoAsync(selectedImage);
+    if (!fileInfo.exists || (fileInfo.size ?? 0) <= 0) {
+      throw new Error("File foto tidak valid. Coba ambil ulang foto.");
+    }
+
+    const filenameFromUri = selectedImage.split("/").pop() || `delivery-${Date.now()}.jpg`;
+
     const formData = new FormData();
     formData.append("photo", {
       uri: selectedImage,
-      name: `delivery-${Date.now()}.jpg`,
+      name: filenameFromUri,
       type: "image/jpeg",
     } as any);
 
-    // PENTING: gunakan apiFetch (yang sudah handle Bearer token)
-    // tapi pastikan apiFetch TIDAK set Content-Type ketika body FormData (sudah kamu lakukan)
     const res = await apiFetch("/upload-delivery-photo", {
       method: "POST",
       body: formData,
     });
 
-    if (!res?.photo_path)
+    if (!res?.photo_path) {
       throw new Error("Response upload tidak mengandung photo_path");
+    }
+
     return res.photo_path as string;
   };
 
