@@ -240,7 +240,7 @@ export default function HasilScanScreen() {
 
         <ScrollView
           style={styles.content}
-          contentContainerStyle={{ paddingBottom: 32 }}
+          contentContainerStyle={styles.contentContainer}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -341,9 +341,12 @@ const styles = StyleSheet.create({
     marginLeft: 16,
   },
   content: {
+    flex: 1,
+  },
+  contentContainer: {
     padding: 2,
+    paddingBottom: 32,
     alignItems: "center",
-
     gap: 16,
   },
   resultCard: {
