@@ -1,11 +1,22 @@
 // app/hasil_scan/index.tsx
 
 import { apiFetch } from "@/utils/api";
+import { LOCATION_TASK_NAME } from "@/utils/locationTask";
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, Stack, useLocalSearchParams } from "expo-router";
-import { useEffect, useRef, useState } from "react";
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 type DetailPengiriman = {
   id: number;
@@ -26,8 +37,9 @@ export default function HasilScanScreen() {
   // const [status, setStatus] = useState('non active');
   const [status, setStatus] = useState("Belum Aktif");
   const [tracerActive, setTracerActive] = useState(false);
-  const trackingInterval = useRef<ReturnType<typeof setInterval> | null>(null);
-  const locationWatcher = useRef<Location.LocationSubscription | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [activatingTracer, setActivatingTracer] = useState(false);
+  const [navigatingComplete, setNavigatingComplete] = useState(false);
 
   // Ekstrak ID dari code (misal SJNID:123 → 123)
   useEffect(() => {
@@ -71,8 +83,8 @@ export default function HasilScanScreen() {
       } else {
         Alert.alert("Error", "Gagal memuat detail pengiriman");
       }
-    } catch (error) {
-      Alert.alert("Error", "Gagal memuat data");
+    } catch (error: any) {
+      Alert.alert("Error", error?.message || "Gagal memuat data");
     } finally {
       setLoading(false);
     }
@@ -95,61 +107,65 @@ export default function HasilScanScreen() {
     };
   };
 
-  const startLocationWatching = async () => {
-    if (tracerActive && id) {
-      locationWatcher.current = await Location.watchPositionAsync(
-        {
-          accuracy: Location.Accuracy.High,
-          distanceInterval: 100, // 200m untuk test
-        },
-        async (location) => {
-          let retries = 3;
-          while (retries > 0) {
-            try {
-              await apiFetch("/send-location", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  travel_document_id: [id],
-                  latitude: location.coords.latitude,
-                  longitude: location.coords.longitude,
-                }),
-              });
-              console.log("Lokasi dikirim:", location.coords);
-              break; // sukses, keluar loop
-            } catch (error) {
-              console.error("Gagal kirim, retry:", retries);
-              retries--;
-              await new Promise((resolve) => setTimeout(resolve, 5000)); // tunggu 5 detik
-            }
-          }
-        },
+  const startBackgroundTracking = useCallback(async (travelDocumentId: number) => {
+    const foregroundPermission = await Location.requestForegroundPermissionsAsync();
+    if (foregroundPermission.status !== "granted") {
+      Alert.alert("Izin lokasi", "Izin lokasi foreground diperlukan.");
+      return false;
+    }
+
+    const backgroundPermission = await Location.requestBackgroundPermissionsAsync();
+    if (backgroundPermission.status !== "granted") {
+      Alert.alert(
+        "Izin lokasi background",
+        "Aktifkan izin 'Always' agar tracking tetap berjalan saat aplikasi di background.",
       );
+      return false;
     }
-  };
+
+    await AsyncStorage.setItem("ACTIVE_SJN_ID", String(travelDocumentId));
+
+    const started = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME);
+    if (!started) {
+      await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
+        accuracy: Location.Accuracy.High,
+        distanceInterval: 100,
+        deferredUpdatesDistance: 100,
+        deferredUpdatesInterval: 60000,
+        pausesUpdatesAutomatically: false,
+        showsBackgroundLocationIndicator: true,
+        foregroundService: {
+          notificationTitle: "Rekatrack Tracking Aktif",
+          notificationBody: "Tracking pengiriman sedang berjalan di background",
+        },
+      });
+    }
+
+    return true;
+  }, []);
 
   useEffect(() => {
-    if (tracerActive) {
-      startLocationWatching();
-    }
-  }, [tracerActive]);
-
-  // PERBAIKAN: Stop watching saat component unmount
-  useEffect(() => {
-    return () => {
-      if (locationWatcher.current) {
-        locationWatcher.current.remove();
+    const syncBackgroundTracking = async () => {
+      if (!id || !tracerActive) return;
+      try {
+        await startBackgroundTracking(id);
+      } catch (error) {
+        console.warn("Gagal memulai background tracking:", error);
       }
     };
-  }, []);
+
+    syncBackgroundTracking();
+  }, [id, tracerActive, startBackgroundTracking]);
 
   // Klik "Hidupkan Tracer"
   const handleHidupkanTracer = async () => {
-    if (id) {
-      const location = await getLocation();
-      if (!location) return;
+    if (!id || activatingTracer) return;
 
-      try {
+    const location = await getLocation();
+    if (!location) return;
+
+    try {
+      setActivatingTracer(true);
         await apiFetch("/send-location", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -161,6 +177,8 @@ export default function HasilScanScreen() {
         });
         setStatus("Aktif"); // ubah jadi "Aktif"
         setTracerActive(true);
+
+        await startBackgroundTracking(id);
 
         Alert.alert("Sukses", "Tracer dihidupkan dan lokasi dikirim", [
           {
@@ -174,16 +192,19 @@ export default function HasilScanScreen() {
             },
           },
         ]);
-      } catch (error) {
-        Alert.alert("Error", "Gagal menghidupkan tracer");
-      }
+    } catch (error: any) {
+      Alert.alert("Error", error?.message || "Gagal menghidupkan tracer");
+    } finally {
+      setActivatingTracer(false);
     }
   };
 
-  const handleSelesaikanPengiriman = () => {
-    if (!id || !detail) return;
+  const handleSelesaikanPengiriman = async () => {
+    if (!id || !detail || navigatingComplete) return;
 
-    router.push({
+    try {
+      setNavigatingComplete(true);
+      router.push({
       pathname: "/pengiriman/selesai",
       params: {
         id: id.toString(),
@@ -191,7 +212,23 @@ export default function HasilScanScreen() {
         send_to: detail.send_to,
         project: detail.project || "",
       },
-    });
+      });
+    } catch (error: any) {
+      Alert.alert("Error", error?.message || "Gagal membuka halaman penyelesaian");
+    } finally {
+      setNavigatingComplete(false);
+    }
+  };
+
+
+  const onRefresh = async () => {
+    if (!id) return;
+    try {
+      setRefreshing(true);
+      await fetchDetail();
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   if (loading) {
@@ -218,7 +255,18 @@ export default function HasilScanScreen() {
           <Text style={styles.title}>Hasil Scan</Text>
         </View>
 
-        <View style={styles.content}>
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={styles.contentContainer}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={["#1E3A8A"]}
+              tintColor="#1E3A8A"
+            />
+          }
+        >
           <View style={styles.headerCard}>
             <View style={styles.headerRow}>
               <View style={styles.iconContainer}>
@@ -254,12 +302,16 @@ export default function HasilScanScreen() {
             <TouchableOpacity
               style={[styles.button, tracerActive && styles.buttonActive]}
               onPress={handleHidupkanTracer}
-              disabled={tracerActive}
+              disabled={tracerActive || activatingTracer}
             >
               <View style={styles.buttonContent}>
-                <Ionicons name="cube-outline" size={25} color="#FFFFFF" />
+                {activatingTracer ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Ionicons name="cube-outline" size={25} color="#FFFFFF" />
+                )}
                 <Text style={styles.buttonText}>
-                  {tracerActive ? "Tracer Hidup" : "Hidupkan Tracer"}
+                  {activatingTracer ? "Mengaktifkan..." : tracerActive ? "Tracer Hidup" : "Hidupkan Tracer"}
                 </Text>
               </View>
             </TouchableOpacity>
@@ -267,16 +319,21 @@ export default function HasilScanScreen() {
             <TouchableOpacity
               style={styles.buttonSecondary}
               onPress={handleSelesaikanPengiriman}
+              disabled={navigatingComplete}
             >
               <View style={styles.buttonSecondaryContent}>
-                <Ionicons name="chevron-forward" size={20} color="#666" />
+                {navigatingComplete ? (
+                  <ActivityIndicator size="small" color="#666" />
+                ) : (
+                  <Ionicons name="chevron-forward" size={20} color="#666" />
+                )}
                 <Text style={styles.buttonTextSecondary}>
-                  Selesaikan Pengiriman
+                  {navigatingComplete ? "Membuka..." : "Selesaikan Pengiriman"}
                 </Text>
               </View>
             </TouchableOpacity>
           </View>
-        </View>
+        </ScrollView>
       </View>
     </>
   );
@@ -310,9 +367,12 @@ const styles = StyleSheet.create({
     marginLeft: 16,
   },
   content: {
+    flex: 1,
+  },
+  contentContainer: {
     padding: 2,
+    paddingBottom: 32,
     alignItems: "center",
-
     gap: 16,
   },
   resultCard: {

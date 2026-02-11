@@ -2,12 +2,12 @@
 
 import { apiFetch } from '@/utils/api';
 import { Ionicons } from '@expo/vector-icons';
-import * as Location from 'expo-location';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
+    RefreshControl,
     ScrollView,
     StyleSheet,
     Text,
@@ -39,42 +39,26 @@ export default function DetailPengirimanScreen() {
 
   const [detail, setDetail] = useState<DetailData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [loadingLocation, setLoadingLocation] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchDetail = useCallback(async () => {
+    try {
+      const response = await apiFetch(`/travel-document/${params.id}`);
+      if (response?.data) {
+        setDetail(response.data);
+      }
+    } catch {
+      Alert.alert('Error', 'Gagal memuat detail pengiriman');
+    } finally {
+      setLoading(false);
+    }
+  }, [params.id]);
 
   // Fetch detail lengkap dari API
   useEffect(() => {
-    const fetchDetail = async () => {
-      try {
-        const response = await apiFetch(`/travel-document/${params.id}`);
-        if (response?.data) {
-          setDetail(response.data);
-        }
-      } catch (error) {
-        Alert.alert('Error', 'Gagal memuat detail pengiriman');
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchDetail();
-  }, [params.id]);
+  }, [fetchDetail]);
 
-  const getLocation = async () => {
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Error', 'Izin lokasi diperlukan');
-      return null;
-    }
-
-    const location = await Location.getCurrentPositionAsync({
-      accuracy: Location.Accuracy.High,
-    });
-
-    return {
-      latitude: location.coords.latitude,
-      longitude: location.coords.longitude,
-    };
-  };
 
 //   const handleSelesaikanPengiriman = async () => {
 //     setLoadingLocation(true);
@@ -109,6 +93,15 @@ export default function DetailPengirimanScreen() {
 //       setLoadingLocation(false);
 //     }
 //   };
+
+  const onRefresh = async () => {
+    try {
+      setRefreshing(true);
+      await fetchDetail();
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const handleSelesaikanPengiriman = () => {
       router.push({
@@ -167,6 +160,14 @@ export default function DetailPengirimanScreen() {
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={["#1E3A8A"]}
+              tintColor="#1E3A8A"
+            />
+          }
         >
           <View style={styles.successSection}>
             <View style={styles.successCircle}>
