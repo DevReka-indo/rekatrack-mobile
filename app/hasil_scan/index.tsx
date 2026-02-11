@@ -1,10 +1,12 @@
 // app/hasil_scan/index.tsx
 
 import { apiFetch } from "@/utils/api";
+import { LOCATION_TASK_NAME } from "@/utils/locationTask";
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, Stack, useLocalSearchParams } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
   RefreshControl,
@@ -35,8 +37,6 @@ export default function HasilScanScreen() {
   const [status, setStatus] = useState("Belum Aktif");
   const [tracerActive, setTracerActive] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const trackingInterval = useRef<ReturnType<typeof setInterval> | null>(null);
-  const locationWatcher = useRef<Location.LocationSubscription | null>(null);
 
   // Ekstrak ID dari code (misal SJNID:123 → 123)
   useEffect(() => {
@@ -104,53 +104,55 @@ export default function HasilScanScreen() {
     };
   };
 
-  const startLocationWatching = async () => {
-    if (tracerActive && id) {
-      locationWatcher.current = await Location.watchPositionAsync(
-        {
-          accuracy: Location.Accuracy.High,
-          distanceInterval: 100, // 200m untuk test
-        },
-        async (location) => {
-          let retries = 3;
-          while (retries > 0) {
-            try {
-              await apiFetch("/send-location", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  travel_document_id: [id],
-                  latitude: location.coords.latitude,
-                  longitude: location.coords.longitude,
-                }),
-              });
-              console.log("Lokasi dikirim:", location.coords);
-              break; // sukses, keluar loop
-            } catch (error) {
-              console.error("Gagal kirim, retry:", retries);
-              retries--;
-              await new Promise((resolve) => setTimeout(resolve, 5000)); // tunggu 5 detik
-            }
-          }
-        },
+  const startBackgroundTracking = useCallback(async (travelDocumentId: number) => {
+    const foregroundPermission = await Location.requestForegroundPermissionsAsync();
+    if (foregroundPermission.status !== "granted") {
+      Alert.alert("Izin lokasi", "Izin lokasi foreground diperlukan.");
+      return false;
+    }
+
+    const backgroundPermission = await Location.requestBackgroundPermissionsAsync();
+    if (backgroundPermission.status !== "granted") {
+      Alert.alert(
+        "Izin lokasi background",
+        "Aktifkan izin 'Always' agar tracking tetap berjalan saat aplikasi di background.",
       );
+      return false;
     }
-  };
+
+    await AsyncStorage.setItem("ACTIVE_SJN_ID", String(travelDocumentId));
+
+    const started = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK_NAME);
+    if (!started) {
+      await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
+        accuracy: Location.Accuracy.High,
+        distanceInterval: 100,
+        deferredUpdatesDistance: 100,
+        deferredUpdatesInterval: 60000,
+        pausesUpdatesAutomatically: false,
+        showsBackgroundLocationIndicator: true,
+        foregroundService: {
+          notificationTitle: "Rekatrack Tracking Aktif",
+          notificationBody: "Tracking pengiriman sedang berjalan di background",
+        },
+      });
+    }
+
+    return true;
+  }, []);
 
   useEffect(() => {
-    if (tracerActive) {
-      startLocationWatching();
-    }
-  }, [tracerActive]);
-
-  // PERBAIKAN: Stop watching saat component unmount
-  useEffect(() => {
-    return () => {
-      if (locationWatcher.current) {
-        locationWatcher.current.remove();
+    const syncBackgroundTracking = async () => {
+      if (!id || !tracerActive) return;
+      try {
+        await startBackgroundTracking(id);
+      } catch (error) {
+        console.warn("Gagal memulai background tracking:", error);
       }
     };
-  }, []);
+
+    syncBackgroundTracking();
+  }, [id, tracerActive, startBackgroundTracking]);
 
   // Klik "Hidupkan Tracer"
   const handleHidupkanTracer = async () => {
@@ -170,6 +172,8 @@ export default function HasilScanScreen() {
         });
         setStatus("Aktif"); // ubah jadi "Aktif"
         setTracerActive(true);
+
+        await startBackgroundTracking(id);
 
         Alert.alert("Sukses", "Tracer dihidupkan dan lokasi dikirim", [
           {

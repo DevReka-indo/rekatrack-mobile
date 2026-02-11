@@ -1,12 +1,14 @@
 // app/pengiriman/selesai.tsx
 
 import { apiFetch } from "@/utils/api";
+import { LOCATION_TASK_NAME } from "@/utils/locationTask";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import * as FileSystem from "expo-file-system/legacy";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import {
@@ -220,6 +222,14 @@ export default function KonfirmasiSelesaiScreen() {
           photo_path: photoPath,
         }),
       });
+
+      const isTrackingRunning = await Location.hasStartedLocationUpdatesAsync(
+        LOCATION_TASK_NAME,
+      );
+      if (isTrackingRunning) {
+        await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME);
+      }
+      await AsyncStorage.removeItem("ACTIVE_SJN_ID");
 
       clearTimeout(hardTimeout);
       Alert.alert("Sukses", "Pengiriman berhasil diselesaikan!", [

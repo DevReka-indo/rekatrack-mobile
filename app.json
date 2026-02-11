@@ -15,7 +15,12 @@
         "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "Aplikasi membutuhkan akses kamera untuk mengambil foto bukti pengiriman.",
         "NSPhotoLibraryUsageDescription": "Aplikasi membutuhkan akses galeri untuk memilih foto bukti pengiriman.",
-        "NSPhotoLibraryAddUsageDescription": "Aplikasi dapat menyimpan hasil foto bukti pengiriman bila diperlukan."
+        "NSPhotoLibraryAddUsageDescription": "Aplikasi dapat menyimpan hasil foto bukti pengiriman bila diperlukan.",
+        "NSLocationWhenInUseUsageDescription": "Aplikasi membutuhkan akses lokasi untuk tracking pengiriman.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Aplikasi membutuhkan akses lokasi background agar tracking tetap berjalan saat aplikasi tidak dibuka.",
+        "UIBackgroundModes": [
+          "location"
+        ]
       }
     },
     "android": {
@@ -49,6 +54,15 @@
         {
           "photosPermission": "Aplikasi membutuhkan akses galeri untuk memilih foto bukti pengiriman.",
           "cameraPermission": "Aplikasi membutuhkan akses kamera untuk mengambil foto bukti pengiriman."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Aplikasi membutuhkan akses lokasi untuk tracking pengiriman.",
+          "locationAlwaysAndWhenInUsePermission": "Aplikasi membutuhkan akses lokasi background agar tracking tetap berjalan saat aplikasi tidak dibuka.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isIosBackgroundLocationEnabled": true
         }
       ]
     ],
