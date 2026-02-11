@@ -8,6 +8,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   RefreshControl,
   ScrollView,
@@ -37,6 +38,8 @@ export default function HasilScanScreen() {
   const [status, setStatus] = useState("Belum Aktif");
   const [tracerActive, setTracerActive] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [activatingTracer, setActivatingTracer] = useState(false);
+  const [navigatingComplete, setNavigatingComplete] = useState(false);
 
   // Ekstrak ID dari code (misal SJNID:123 → 123)
   useEffect(() => {
@@ -80,8 +83,8 @@ export default function HasilScanScreen() {
       } else {
         Alert.alert("Error", "Gagal memuat detail pengiriman");
       }
-    } catch (error) {
-      Alert.alert("Error", "Gagal memuat data");
+    } catch (error: any) {
+      Alert.alert("Error", error?.message || "Gagal memuat data");
     } finally {
       setLoading(false);
     }
@@ -156,11 +159,13 @@ export default function HasilScanScreen() {
 
   // Klik "Hidupkan Tracer"
   const handleHidupkanTracer = async () => {
-    if (id) {
-      const location = await getLocation();
-      if (!location) return;
+    if (!id || activatingTracer) return;
 
-      try {
+    const location = await getLocation();
+    if (!location) return;
+
+    try {
+      setActivatingTracer(true);
         await apiFetch("/send-location", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -187,16 +192,19 @@ export default function HasilScanScreen() {
             },
           },
         ]);
-      } catch (error) {
-        Alert.alert("Error", "Gagal menghidupkan tracer");
-      }
+    } catch (error: any) {
+      Alert.alert("Error", error?.message || "Gagal menghidupkan tracer");
+    } finally {
+      setActivatingTracer(false);
     }
   };
 
-  const handleSelesaikanPengiriman = () => {
-    if (!id || !detail) return;
+  const handleSelesaikanPengiriman = async () => {
+    if (!id || !detail || navigatingComplete) return;
 
-    router.push({
+    try {
+      setNavigatingComplete(true);
+      router.push({
       pathname: "/pengiriman/selesai",
       params: {
         id: id.toString(),
@@ -204,7 +212,23 @@ export default function HasilScanScreen() {
         send_to: detail.send_to,
         project: detail.project || "",
       },
-    });
+      });
+    } catch (error: any) {
+      Alert.alert("Error", error?.message || "Gagal membuka halaman penyelesaian");
+    } finally {
+      setNavigatingComplete(false);
+    }
+  };
+
+
+  const onRefresh = async () => {
+    if (!id) return;
+    try {
+      setRefreshing(true);
+      await fetchDetail();
+    } finally {
+      setRefreshing(false);
+    }
   };
 
 
@@ -289,12 +313,16 @@ export default function HasilScanScreen() {
             <TouchableOpacity
               style={[styles.button, tracerActive && styles.buttonActive]}
               onPress={handleHidupkanTracer}
-              disabled={tracerActive}
+              disabled={tracerActive || activatingTracer}
             >
               <View style={styles.buttonContent}>
-                <Ionicons name="cube-outline" size={25} color="#FFFFFF" />
+                {activatingTracer ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Ionicons name="cube-outline" size={25} color="#FFFFFF" />
+                )}
                 <Text style={styles.buttonText}>
-                  {tracerActive ? "Tracer Hidup" : "Hidupkan Tracer"}
+                  {activatingTracer ? "Mengaktifkan..." : tracerActive ? "Tracer Hidup" : "Hidupkan Tracer"}
                 </Text>
               </View>
             </TouchableOpacity>
@@ -302,11 +330,16 @@ export default function HasilScanScreen() {
             <TouchableOpacity
               style={styles.buttonSecondary}
               onPress={handleSelesaikanPengiriman}
+              disabled={navigatingComplete}
             >
               <View style={styles.buttonSecondaryContent}>
-                <Ionicons name="chevron-forward" size={20} color="#666" />
+                {navigatingComplete ? (
+                  <ActivityIndicator size="small" color="#666" />
+                ) : (
+                  <Ionicons name="chevron-forward" size={20} color="#666" />
+                )}
                 <Text style={styles.buttonTextSecondary}>
-                  Selesaikan Pengiriman
+                  {navigatingComplete ? "Membuka..." : "Selesaikan Pengiriman"}
                 </Text>
               </View>
             </TouchableOpacity>
