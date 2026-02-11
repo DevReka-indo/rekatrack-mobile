@@ -231,6 +231,17 @@ export default function HasilScanScreen() {
     }
   };
 
+
+  const onRefresh = async () => {
+    if (!id) return;
+    try {
+      setRefreshing(true);
+      await fetchDetail();
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.center}>
