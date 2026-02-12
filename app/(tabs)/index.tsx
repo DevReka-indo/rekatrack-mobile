@@ -60,40 +60,11 @@ export default function HomeScreen() {
       if (backPressed.current === 0 || now - backPressed.current > 2000) {
         backPressed.current = now;
 
-        // Tampilkan toast "Tekan sekali lagi untuk keluar"
         ToastAndroid.show("Tekan sekali lagi untuk keluar", ToastAndroid.SHORT);
-
-        return true; // cegah back langsung
+        return true;
       }
-      Alert.alert(
-        "Konfirmasi Logout",
-        "Apakah Anda ingin logout dari aplikasi?",
-        [
-          {
-            text: "Batal",
-            style: "cancel",
-            onPress: () => {
-              // Reset timer jika batal
-              backPressed.current = 0;
-            },
-          },
-          {
-            text: "Logout",
-            style: "destructive",
-            onPress: async () => {
-              try {
-                await AsyncStorage.multiRemove(["token", "user"]);
-                Alert.alert("Berhasil", "Anda telah logout");
-                router.replace("/login"); // atau "/(auth)/login" sesuai struktur router Anda
-              } catch (e) {
-                console.error("Gagal logout:", e);
-                Alert.alert("Error", "Gagal logout, coba lagi");
-              }
-            },
-          },
-        ],
-        { cancelable: false },
-      );
+
+      BackHandler.exitApp();
       return true;
     };
 
