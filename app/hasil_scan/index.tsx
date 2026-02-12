@@ -57,14 +57,7 @@ export default function HasilScanScreen() {
     }
   }, [code]);
 
-  // Fetch detail pengiriman berdasarkan ID
-  useEffect(() => {
-    if (id) {
-      fetchDetail();
-    }
-  }, [id]);
-
-  const fetchDetail = async () => {
+  const fetchDetail = useCallback(async () => {
     try {
       const response = await apiFetch(`/travel-document/${id}`);
       if (response?.data) {
@@ -88,8 +81,15 @@ export default function HasilScanScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
 
+
+  // Fetch detail pengiriman berdasarkan ID
+  useEffect(() => {
+    if (id) {
+      fetchDetail();
+    }
+  }, [id, fetchDetail]);
   // Fungsi ambil lokasi GPS
   const getLocation = async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
@@ -166,7 +166,7 @@ export default function HasilScanScreen() {
 
     try {
       setActivatingTracer(true);
-        await apiFetch("/send-location", {
+      await apiFetch("/send-location", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -174,13 +174,13 @@ export default function HasilScanScreen() {
             latitude: location.latitude,
             longitude: location.longitude,
           }),
-        });
-        setStatus("Aktif"); // ubah jadi "Aktif"
-        setTracerActive(true);
+      });
+      setStatus("Aktif"); // ubah jadi "Aktif"
+      setTracerActive(true);
 
-        await startBackgroundTracking(id);
+      await startBackgroundTracking(id);
 
-        Alert.alert("Sukses", "Tracer dihidupkan dan lokasi dikirim", [
+      Alert.alert("Sukses", "Tracer dihidupkan dan lokasi dikirim", [
           {
             text: "OK",
             onPress: () => {
@@ -205,13 +205,13 @@ export default function HasilScanScreen() {
     try {
       setNavigatingComplete(true);
       router.push({
-      pathname: "/pengiriman/selesai",
-      params: {
-        id: id.toString(),
-        no: detail.no_travel_document,
-        send_to: detail.send_to,
-        project: detail.project || "",
-      },
+        pathname: "/pengiriman/selesai",
+        params: {
+          id: id.toString(),
+          no: detail.no_travel_document,
+          send_to: detail.send_to,
+          project: detail.project || "",
+        },
       });
     } catch (error: any) {
       Alert.alert("Error", error?.message || "Gagal membuka halaman penyelesaian");
@@ -221,18 +221,7 @@ export default function HasilScanScreen() {
   };
 
 
-  const onRefresh = async () => {
-    if (!id) return;
-    try {
-      setRefreshing(true);
-      await fetchDetail();
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
-
-  const onRefresh = async () => {
+  const handleRefresh = async () => {
     if (!id) return;
     try {
       setRefreshing(true);
@@ -272,7 +261,7 @@ export default function HasilScanScreen() {
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
-              onRefresh={onRefresh}
+              onRefresh={handleRefresh}
               colors={["#1E3A8A"]}
               tintColor="#1E3A8A"
             />
