@@ -108,6 +108,7 @@ export default function HasilScanScreen() {
   };
 
   const startBackgroundTracking = useCallback(async (travelDocumentId: number) => {
+    try {
     const foregroundPermission = await Location.requestForegroundPermissionsAsync();
     if (foregroundPermission.status !== "granted") {
       Alert.alert("Izin lokasi", "Izin lokasi foreground diperlukan.");
@@ -142,13 +143,21 @@ export default function HasilScanScreen() {
     }
 
     return true;
+    } catch (error: any) {
+      Alert.alert("Error", error?.message || "Gagal memulai tracking background");
+      return false;
+    }
   }, []);
 
   useEffect(() => {
     const syncBackgroundTracking = async () => {
       if (!id || !tracerActive) return;
       try {
-        await startBackgroundTracking(id);
+        const started = await startBackgroundTracking(id);
+        if (!started) {
+          setTracerActive(false);
+          setStatus("Belum Aktif");
+        }
       } catch (error) {
         console.warn("Gagal memulai background tracking:", error);
       }
@@ -178,7 +187,13 @@ export default function HasilScanScreen() {
       setStatus("Aktif"); // ubah jadi "Aktif"
       setTracerActive(true);
 
-      await startBackgroundTracking(id);
+      const started = await startBackgroundTracking(id);
+
+      if (!started) {
+        setTracerActive(false);
+        setStatus("Belum Aktif");
+        return;
+      }
 
       Alert.alert("Sukses", "Tracer dihidupkan dan lokasi dikirim", [
           {
