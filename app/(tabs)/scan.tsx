@@ -47,7 +47,7 @@ export default function ScanScreen() {
 
   const openGallery = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ["images"],
     });
 
     if (!result.canceled) {
