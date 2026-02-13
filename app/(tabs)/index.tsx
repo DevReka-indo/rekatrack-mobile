@@ -61,7 +61,10 @@ export default function HomeScreen() {
         if (backPressed.current === 0 || now - backPressed.current > 2000) {
           backPressed.current = now;
 
-          ToastAndroid.show("Tekan sekali lagi untuk keluar", ToastAndroid.SHORT);
+          ToastAndroid.show(
+            "Tekan sekali lagi untuk keluar",
+            ToastAndroid.SHORT,
+          );
           return true;
         }
 
@@ -97,7 +100,7 @@ export default function HomeScreen() {
     loadUserData();
 
     return () => {
-      backHandler.remove();
+      // backHandler.remove();
     };
   }, []);
 
