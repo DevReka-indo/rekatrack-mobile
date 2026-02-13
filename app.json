@@ -18,7 +18,9 @@
         "NSPhotoLibraryAddUsageDescription": "Aplikasi dapat menyimpan hasil foto bukti pengiriman bila diperlukan.",
         "NSLocationWhenInUseUsageDescription": "Aplikasi membutuhkan akses lokasi untuk tracking pengiriman.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Aplikasi membutuhkan akses lokasi background agar tracking tetap berjalan saat aplikasi tidak dibuka.",
-        "UIBackgroundModes": ["location"]
+        "UIBackgroundModes": [
+          "location"
+        ]
       }
     },
     "android": {

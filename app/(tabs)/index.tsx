@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -16,6 +16,7 @@ import {
 } from "react-native";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect } from "@react-navigation/native";
 import { router } from "expo-router";
 
 import { ThemedView } from "@/components/themed-view";
@@ -53,26 +54,34 @@ export default function HomeScreen() {
   });
   const backPressed = useRef(0);
 
+  useFocusEffect(
+    useCallback(() => {
+      const backAction = () => {
+        const now = Date.now();
+        if (backPressed.current === 0 || now - backPressed.current > 2000) {
+          backPressed.current = now;
+
+          ToastAndroid.show("Tekan sekali lagi untuk keluar", ToastAndroid.SHORT);
+          return true;
+        }
+
+        BackHandler.exitApp();
+        return true;
+      };
+
+      const backHandler = BackHandler.addEventListener(
+        "hardwareBackPress",
+        backAction,
+      );
+
+      return () => {
+        backHandler.remove();
+      };
+    }, []),
+  );
+
   // Ambil nama user dari AsyncStorage saat komponen dimuat
   useEffect(() => {
-    const backAction = () => {
-      const now = Date.now();
-      if (backPressed.current === 0 || now - backPressed.current > 2000) {
-        backPressed.current = now;
-
-        ToastAndroid.show("Tekan sekali lagi untuk keluar", ToastAndroid.SHORT);
-        return true;
-      }
-
-      BackHandler.exitApp();
-      return true;
-    };
-
-    const backHandler = BackHandler.addEventListener(
-      "hardwareBackPress",
-      backAction,
-    );
-
     const loadUserData = async () => {
       try {
         const userData = await AsyncStorage.getItem("user");
