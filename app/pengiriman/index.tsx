@@ -2,9 +2,11 @@
 
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, router } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Image,
   StyleSheet,
@@ -58,8 +60,21 @@ export default function ProsesScreen() {
       } else {
         setData([]);
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error("Error fetching proses data:", e);
+
+      if (e?.status === 401) {
+        Alert.alert("Sesi Habis", "Silakan login ulang.", [
+          {
+            text: "OK",
+            onPress: async () => {
+              await AsyncStorage.multiRemove(["token", "user", "role", "division"]);
+              router.replace("/login");
+            },
+          },
+        ]);
+      }
+
       setData([]);
     } finally {
       setLoading(false);

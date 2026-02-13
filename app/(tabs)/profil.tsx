@@ -58,7 +58,6 @@ export default function ProfileScreen() {
   const fetchLatestProfile = async () => {
     try {
       const response = await apiFetch('/user');
-      console.log('Response /user:', response); // debug
       if (response && response.data) {
         const updatedUser = response.data;
         setUser(updatedUser);
