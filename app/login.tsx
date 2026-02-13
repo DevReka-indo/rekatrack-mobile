@@ -226,6 +226,10 @@ function LoginScreenInner() {
             onChangeText={setEmail}
             helperText={errors.email}
             status={errors.email ? "error" : "default"}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            textContentType="emailAddress"
             returnKeyType="next"
             onSubmitEditing={() => passwordRef.current?.focus()}
           />

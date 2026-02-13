@@ -5,11 +5,12 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { Stack, router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Image,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -30,12 +31,9 @@ export default function ProfileScreen() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    loadUserData();
-  }, []);
-
-  const loadUserData = async () => {
+  const loadUserData = useCallback(async () => {
     try {
       const userData = await AsyncStorage.getItem('user');
       if (userData) {
@@ -51,7 +49,11 @@ export default function ProfileScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadUserData();
+  }, [loadUserData]);
 
   const fetchLatestProfile = async () => {
     try {
@@ -82,7 +84,7 @@ export default function ProfileScreen() {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ["images"],
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
@@ -129,6 +131,16 @@ export default function ProfileScreen() {
     );
   };
 
+
+  const onRefresh = async () => {
+    try {
+      setRefreshing(true);
+      await loadUserData();
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -152,7 +164,16 @@ export default function ProfileScreen() {
         </View>
 
         {/* KONTEN PROFIL */}
-        <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+        <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={["#1E3A8A"]}
+              tintColor="#1E3A8A"
+            />
+          }
+        >
           {/* Foto Profil */}
           <View style={styles.profileSection}>
             <View style={styles.photoWrapper}>

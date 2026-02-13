@@ -32,6 +32,7 @@ export default function ProsesScreen() {
   const [data, setData] = useState<TravelDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -62,6 +63,15 @@ export default function ProsesScreen() {
       setData([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const onRefresh = async () => {
+    try {
+      setRefreshing(true);
+      await fetchData();
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -156,32 +166,33 @@ export default function ProsesScreen() {
           />
         </View>
 
-        {loading && data.length === 0 ? (
-          <ActivityIndicator
-            size="large"
-            color="#1E3A8A"
-            style={{ marginTop: 40 }}
-          />
-        ) : filteredData.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Ionicons name="hourglass-outline" size={60} color="#999" />
-            <Text style={styles.emptyText}>
-              {search.trim()
-                ? "Tidak ditemukan pengiriman dalam proses"
-                : "Belum ada pengiriman yang sedang dalam proses"}
-            </Text>
-          </View>
-        ) : (
-          <FlatList
-            data={filteredData}
-            keyExtractor={(item) => item.id.toString()}
-            renderItem={renderItem}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: 20 }}
-            refreshing={loading}
-            onRefresh={fetchData}
-          />
-        )}
+        <FlatList
+          data={filteredData}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={renderItem}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 20, flexGrow: 1 }}
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          ListEmptyComponent={
+            loading ? (
+              <ActivityIndicator
+                size="large"
+                color="#1E3A8A"
+                style={{ marginTop: 40 }}
+              />
+            ) : (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="hourglass-outline" size={60} color="#999" />
+                <Text style={styles.emptyText}>
+                  {search.trim()
+                    ? "Tidak ditemukan pengiriman dalam proses"
+                    : "Belum ada pengiriman yang sedang dalam proses"}
+                </Text>
+              </View>
+            )
+          }
+        />
       </View>
     </>
   );
