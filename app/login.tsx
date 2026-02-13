@@ -154,7 +154,11 @@ function LoginScreenInner() {
   return (
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: Colors.navy }}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      behavior={
+        Platform.OS === "ios" || Platform.OS === "android"
+          ? "padding"
+          : "height"
+      }
       keyboardVerticalOffset={20}
     >
       <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
@@ -245,6 +249,9 @@ function LoginScreenInner() {
             ref={passwordRef}
             returnKeyType="done"
             onSubmitEditing={handleLogin}
+            autoCapitalize="none"
+            autoCorrect={false}
+            textContentType="password"
           />
 
           <Button

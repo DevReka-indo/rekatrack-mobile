@@ -95,6 +95,10 @@ export default function HomeScreen() {
     };
 
     loadUserData();
+
+    return () => {
+      backHandler.remove();
+    };
   }, []);
 
   const fetchTravelDocuments = async () => {

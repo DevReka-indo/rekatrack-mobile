@@ -2,9 +2,9 @@
   "expo": {
     "name": "rekatrack-mobile",
     "slug": "rekatrack-mobile",
-    "version": "1.0.1",
+    "version": "1.0.3",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/logo.mobile.png",
     "scheme": "rekatrack-mobile",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -25,12 +25,7 @@
     },
     "android": {
       "package": "com.reka.rekatrackmobile",
-      "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
-      },
+      "icon": "./assets/images/logo.mobile.png",
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
