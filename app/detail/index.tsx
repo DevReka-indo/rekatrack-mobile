@@ -1,6 +1,7 @@
 // app/detail/index.tsx
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, router, useLocalSearchParams } from "expo-router";
+import { useState } from "react";
 import {
   FlatList,
   StyleSheet,
@@ -44,6 +45,7 @@ type TravelDocument = {
 
 export default function DetailScreen() {
   const params = useLocalSearchParams();
+  const [openingScan, setOpeningScan] = useState(false);
 
   // Ambil items langsung dari params (karena sudah di-load di API detail)
   const items: Item[] = params.items ? JSON.parse(String(params.items)) : [];
@@ -195,13 +197,18 @@ export default function DetailScreen() {
               {item.status === "Belum terkirim" && (
                 <TouchableOpacity
                   onPress={() => {
-                    router.push({
+                    if (openingScan) return;
+                    setOpeningScan(true);
+                    router.replace({
                       pathname: "/(tabs)/scan",
                     });
                   }}
+                  disabled={openingScan}
                   style={[styles.actionButton, { backgroundColor: "#364981" }]}
                 >
-                  <Text style={styles.actionButtonText}>Mulai Pengiriman</Text>
+                  <Text style={styles.actionButtonText}>
+                    {openingScan ? "Membuka Scanner..." : "Mulai Pengiriman"}
+                  </Text>
                 </TouchableOpacity>
               )}
 
