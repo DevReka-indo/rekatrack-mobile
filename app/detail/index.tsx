@@ -187,46 +187,27 @@ export default function DetailScreen() {
               </Text>
             </View>
           </View>
-          {item.status !== "Terkirim" && (
+          {item.status === "Sedang dikirim" && (
             <View style={styles.col}>
               <Text style={styles.label}>Aksi</Text>
 
-              {/* BELUM TERKIRIM */}
-              {item.status === "Belum terkirim" && (
-                <TouchableOpacity
-                  onPress={() => {
-                    router.push({
-                      pathname: "/(tabs)/scan",
-                    });
-                  }}
-                  style={[styles.actionButton, { backgroundColor: "#364981" }]}
-                >
-                  <Text style={styles.actionButtonText}>Mulai Pengiriman</Text>
-                </TouchableOpacity>
-              )}
-
               {/* SEDANG DIKIRIM */}
-              {item.status === "Sedang dikirim" && (
-                <TouchableOpacity
-                  onPress={() => {
-                    router.push({
-                      pathname: "/pengiriman/selesai",
-                      params: {
-                        id: String(item.id),
-                        no: item.no_travel_document,
-                        send_to: item.send_to,
-                        project: item.project,
-                      },
-                    });
-                  }}
-                  style={[styles.actionButton, { backgroundColor: "#364981" }]}
-                >
-                  <Text style={styles.actionButtonText}>
-                    {" "}
-                    Selesaikan Pengiriman
-                  </Text>
-                </TouchableOpacity>
-              )}
+              <TouchableOpacity
+                onPress={() => {
+                  router.push({
+                    pathname: "/pengiriman/selesai",
+                    params: {
+                      id: String(item.id),
+                      no: item.no_travel_document,
+                      send_to: item.send_to,
+                      project: item.project,
+                    },
+                  });
+                }}
+                style={[styles.actionButton, { backgroundColor: "#364981" }]}
+              >
+                <Text style={styles.actionButtonText}>Selesaikan Pengiriman</Text>
+              </TouchableOpacity>
             </View>
           )}
         </View>
