@@ -409,7 +409,7 @@ export default function HomeScreen() {
           <View style={styles.headerLogo}>
             <Image
               style={styles.logo}
-              source={require("@/assets/images/logo-rekatrack.png")}
+              source={require("@/assets/images/logo.mobile.png")}
             />
           </View>
         </View>
