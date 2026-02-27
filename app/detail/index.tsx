@@ -1,6 +1,7 @@
 // app/detail/index.tsx
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, router, useLocalSearchParams } from "expo-router";
+import { useState } from "react";
 import {
   FlatList,
   StyleSheet,
@@ -44,6 +45,7 @@ type TravelDocument = {
 
 export default function DetailScreen() {
   const params = useLocalSearchParams();
+  const [openingScan, setOpeningScan] = useState(false);
 
   // Ambil items langsung dari params (karena sudah di-load di API detail)
   const items: Item[] = params.items ? JSON.parse(String(params.items)) : [];
