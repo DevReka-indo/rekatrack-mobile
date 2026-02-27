@@ -3,7 +3,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { Camera, CameraView } from "expo-camera";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 export default function ScanScreen() {
@@ -12,6 +12,7 @@ export default function ScanScreen() {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [scanned, setScanned] = useState(false);
   const [flash, setFlash] = useState<"on" | "off">("off");
+  const hasNavigatedRef = useRef(false);
 
   useEffect(() => {
     (async () => {
@@ -24,6 +25,7 @@ export default function ScanScreen() {
     useCallback(() => {
       // Saat screen ini difokuskan (dibuka atau kembali dari navigasi), reset scanned
       setScanned(false);
+      hasNavigatedRef.current = false;
 
       // Optional: reset flash juga kalau mau
       // setFlash('off');
@@ -36,10 +38,13 @@ export default function ScanScreen() {
     }, []),
   );
   const handleBarCodeScanned = ({ data }: { data: string }) => {
+    if (hasNavigatedRef.current) return;
+
+    hasNavigatedRef.current = true;
     setScanned(true);
 
     // Langsung navigasi ke halaman hasil scan dengan parameter code
-    router.push({
+    router.replace({
       pathname: "/hasil_scan",
       params: { code: data },
     });

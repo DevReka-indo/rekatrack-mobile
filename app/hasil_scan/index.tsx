@@ -200,7 +200,7 @@ export default function HasilScanScreen() {
             text: "OK",
             onPress: () => {
               // Pindah ke halaman detail pengiriman dengan pass id
-              router.push({
+              router.replace({
                 pathname: "/pengiriman/detail",
                 params: { id: id.toString() }, // id sebagai string
               });
@@ -219,7 +219,7 @@ export default function HasilScanScreen() {
 
     try {
       setNavigatingComplete(true);
-      router.push({
+      router.replace({
         pathname: "/pengiriman/selesai",
         params: {
           id: id.toString(),
