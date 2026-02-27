@@ -14,6 +14,7 @@ import { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  FlatList,
   Image,
   Platform,
   ScrollView,
@@ -36,7 +37,7 @@ export default function KonfirmasiSelesaiScreen() {
 
   const [namaPenerima, setNamaPenerima] = useState("");
   const [catatan, setCatatan] = useState("");
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [selectedImages, setSelectedImages] = useState<string[]>([]);
 
   const [date, setDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -112,12 +113,19 @@ export default function KonfirmasiSelesaiScreen() {
       mediaTypes: ["images"],
       quality: 0.9,
       allowsEditing: false,
+      allowsMultipleSelection: true,
+      selectionLimit: 10,
     });
 
     if (!result.canceled) {
-      const asset = result.assets[0];
-      const jpegUri = await normalizeToJpegFile(asset);
-      setSelectedImage(jpegUri);
+      const normalizedImages = await Promise.all(
+        result.assets.map((asset) => normalizeToJpegFile(asset)),
+      );
+
+      setSelectedImages((prev) => {
+        const merged = [...prev, ...normalizedImages];
+        return [...new Set(merged)];
+      });
     }
   };
 
@@ -143,7 +151,7 @@ export default function KonfirmasiSelesaiScreen() {
       if (!result.canceled) {
         const asset = result.assets[0];
         const jpegUri = await normalizeToJpegFile(asset);
-        setSelectedImage(jpegUri);
+        setSelectedImages((prev) => [...prev, jpegUri]);
       }
     } catch (error) {
       console.error("TAKE PHOTO ERROR:", error);
@@ -160,39 +168,50 @@ export default function KonfirmasiSelesaiScreen() {
    * - Jangan set Content-Type manual
    * - URI harus file://...
    */
-  const uploadPhoto = async () => {
-    if (!selectedImage) throw new Error("Foto belum dipilih");
+  const uploadPhotos = async () => {
+    if (selectedImages.length === 0) throw new Error("Foto belum dipilih");
 
-    const fileInfo = await FileSystem.getInfoAsync(selectedImage);
-    if (!fileInfo.exists || (fileInfo.size ?? 0) <= 0) {
-      throw new Error("File foto tidak valid. Coba ambil ulang foto.");
-    }
+    const uploadedPhotoPaths = await Promise.all(
+      selectedImages.map(async (imageUri, index) => {
+        const fileInfo = await FileSystem.getInfoAsync(imageUri);
+        if (!fileInfo.exists || (fileInfo.size ?? 0) <= 0) {
+          throw new Error(`File foto ke-${index + 1} tidak valid. Coba ambil ulang foto.`);
+        }
 
-    const filenameFromUri = selectedImage.split("/").pop() || `delivery-${Date.now()}.jpg`;
+        const filenameFromUri =
+          imageUri.split("/").pop() || `delivery-${Date.now()}-${index + 1}.jpg`;
 
-    const formData = new FormData();
-    formData.append("photo", {
-      uri: selectedImage,
-      name: filenameFromUri,
-      type: "image/jpeg",
-    } as any);
+        const formData = new FormData();
+        formData.append("photo", {
+          uri: imageUri,
+          name: filenameFromUri,
+          type: "image/jpeg",
+        } as any);
 
-    const res = await apiFetch("/upload-delivery-photo", {
-      method: "POST",
-      body: formData,
-    });
+        const res = await apiFetch("/upload-delivery-photo", {
+          method: "POST",
+          body: formData,
+        });
 
-    if (!res?.photo_path) {
-      throw new Error("Response upload tidak mengandung photo_path");
-    }
+        if (!res?.photo_path) {
+          throw new Error("Response upload tidak mengandung photo_path");
+        }
 
-    return res.photo_path as string;
+        return res.photo_path as string;
+      }),
+    );
+
+    return uploadedPhotoPaths;
+  };
+
+  const removeImage = (imageUri: string) => {
+    setSelectedImages((prev) => prev.filter((uri) => uri !== imageUri));
   };
 
   const handleKonfirmasi = async () => {
     if (!namaPenerima.trim())
       return Alert.alert("Error", "Nama penerima wajib diisi");
-    if (!selectedImage)
+    if (selectedImages.length === 0)
       return Alert.alert("Error", "Foto bukti penerimaan wajib diunggah");
 
     setLoading(true);
@@ -207,7 +226,7 @@ export default function KonfirmasiSelesaiScreen() {
       const { latitude, longitude } = await getCurrentLocation();
 
       // 1) upload photo
-      const photoPath = await uploadPhoto();
+      const photoPaths = await uploadPhotos();
 
       // 2) complete tracking
       await apiFetch("/complete-tracking", {
@@ -219,7 +238,8 @@ export default function KonfirmasiSelesaiScreen() {
           receiver_name: namaPenerima,
           received_at: date.toISOString(),
           note: catatan,
-          photo_path: photoPath,
+          photo_path: photoPaths[0],
+          photo_paths: photoPaths,
         }),
       });
 
@@ -344,15 +364,29 @@ export default function KonfirmasiSelesaiScreen() {
             />
 
             <Text style={styles.inputLabel}>Foto Bukti Penerimaan</Text>
-            <TouchableOpacity
-              style={styles.photoBox}
-              onPress={() => setShowPhotoOption(true)}
-            >
-              {selectedImage ? (
-                <Image
-                  source={{ uri: selectedImage }}
-                  style={styles.photoPreview}
-                />
+            <TouchableOpacity style={styles.photoBox} onPress={() => setShowPhotoOption(true)}>
+              {selectedImages.length > 0 ? (
+                <>
+                  <FlatList
+                    data={selectedImages}
+                    horizontal
+                    keyExtractor={(item) => item}
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.photoList}
+                    renderItem={({ item }) => (
+                      <View style={styles.photoItem}>
+                        <Image source={{ uri: item }} style={styles.photoPreview} />
+                        <TouchableOpacity
+                          style={styles.removePhotoButton}
+                          onPress={() => removeImage(item)}
+                        >
+                          <Ionicons name="close" size={14} color="#fff" />
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  />
+                  <Text style={styles.photoCountText}>{selectedImages.length} foto dipilih</Text>
+                </>
               ) : (
                 <View style={styles.photoPlaceholder}>
                   <Ionicons name="add-circle-outline" size={40} color="#999" />
@@ -409,7 +443,7 @@ export default function KonfirmasiSelesaiScreen() {
                 }}
               >
                 <Ionicons name="images-outline" size={20} color="#fff" />
-                <Text style={styles.modalButtonText}>Galeri</Text>
+                <Text style={styles.modalButtonText}>Galeri (bisa pilih banyak)</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -539,12 +573,43 @@ const styles = StyleSheet.create({
     borderColor: "#ddd",
     borderStyle: "dashed",
     borderRadius: 16,
-    height: 180,
+    minHeight: 180,
     justifyContent: "center",
     alignItems: "center",
     marginTop: 10,
+    paddingVertical: 12,
   },
-  photoPreview: { width: "100%", height: "100%", borderRadius: 14 },
+  photoList: {
+    paddingHorizontal: 10,
+    alignItems: "center",
+  },
+  photoItem: {
+    width: 120,
+    height: 150,
+    borderRadius: 12,
+    overflow: "hidden",
+    marginRight: 10,
+    position: "relative",
+  },
+  photoPreview: { width: "100%", height: "100%" },
+  removePhotoButton: {
+    position: "absolute",
+    top: 6,
+    right: 6,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: "rgba(0,0,0,0.65)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  photoCountText: {
+    marginTop: 10,
+    marginBottom: 4,
+    color: "#666",
+    fontSize: 13,
+    fontWeight: "600",
+  },
   photoPlaceholder: { alignItems: "center" },
   photoText: { marginTop: 10, color: "#999", fontSize: 14 },
 
